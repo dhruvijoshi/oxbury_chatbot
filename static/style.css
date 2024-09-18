@@ -135,7 +135,7 @@ border-radius: 0 0 15px 15px !important;
 	font-size: 10px;
 	color: rgba(255,255,255,0.6);
 }
-.video_cam{
+/* .video_cam{
 	margin-left: 50px;
 	margin-top: 5px;
 }
@@ -144,7 +144,7 @@ border-radius: 0 0 15px 15px !important;
 	font-size: 20px;
 	cursor: pointer;
 	margin-right: 20px;
-}
+} */
 .msg_cotainer{
 	margin-top: auto;
 	margin-bottom: auto;
