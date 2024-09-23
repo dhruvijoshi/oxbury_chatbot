@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, jsonify
 import torch
 import requests
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
-import spacy, re, os
-from dotenv import load_dotenv
+import spacy
+import re
+import os
 
-load_dotenv(dotenv_path='api_key.env')
 api_key = os.getenv('COMPANY_HOUSE_API')
 
+# Initialising Language model
 model_name = "gpt2"
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 model = GPT2LMHeadModel.from_pretrained(model_name)
@@ -21,11 +22,12 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    # Fetching inputs from user
     msg = request.form["msg"]
     nlp = spacy.load("en_core_web_sm")
     msg = nlp(msg)
    
-    # Finding postcode in input
+    # Regex to find postcode in input
     postcode_pattern = r'\b[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][ABD-HJLNP-UW-Z]{2}\b'
     c_postcode = re.findall(postcode_pattern, msg.text)
     
@@ -47,19 +49,29 @@ def generate():
     return response
 
 
+# Generates output for the chatbot
 def generate_text(prompt, max_length=100):
     result = []
     
-    # If company data is retrieved
+    # If company data is retrieved from API
     if retrieved_data:
-        for value in retrieved_data.items():
-            generated_text = f"I found company {value[1]['name']} registered with {value[1]['number']} number, located at {value[1]['address']}."
-            result.append(generated_text)
+        generated_text = f"I found below result:"
+        result.append(generated_text)
+        for value in retrieved_data.values():
+            company_name = value.get('name', 'N/A')
+            company_number = value.get('number', 'N/A')
+            company_address = value.get('address', 'N/A')
 
+            generated_text = (
+                f"<br>Company: {company_name}<br>"
+                f"Number: {company_number}<br>"
+                f"Location: {company_address}<br>"
+            )
+            result.append(generated_text)
         retrieved_data.clear()
-        return jsonify(result)
+        return ''.join(result)
     
-    # General input 
+    # Generates output for queries other than Company details
     else:
         input_ids = tokenizer.encode(prompt, return_tensors="pt")
         attention_mask = torch.ones(input_ids.shape, dtype=torch.long)
@@ -72,7 +84,9 @@ def generate_text(prompt, max_length=100):
         return jsonify(sentences)
 
 
+# Will be called if there is company name in the input
 def call_using_name(name):
+    # Fetching data from API
     url = f'https://api.company-information.service.gov.uk/search/companies?q={name}'
     response = requests.get(url, auth=(api_key, ''))
     data = response.json()    
@@ -81,6 +95,7 @@ def call_using_name(name):
         answer = generate_text(data)
         return answer
 
+    # Extracting useful information from API response
     i = 0
     for item in data['items']:
         i += 1
@@ -100,7 +115,9 @@ def call_using_name(name):
     return answer
 
 
+# Will be called if there is company number in the input
 def call_using_number(c_num):
+    # Fetching data from API
     url = f'https://api.company-information.service.gov.uk/search?q={c_num}'
     response = requests.get(url, auth=(api_key, ''))
     data = response.json()
@@ -109,6 +126,7 @@ def call_using_number(c_num):
         answer = generate_text(data)
         return answer
     
+    # Extracting useful information from API response
     i = 0
     for item in data['items']:
         i += 1
@@ -127,7 +145,9 @@ def call_using_number(c_num):
     return answer
 
 
+# Will be called if there is company's postcode in the input
 def call_using_add(c_add):
+    # Fetching data from API
     url = f'https://api.company-information.service.gov.uk/search?q={c_add}'
     response = requests.get(url, auth=(api_key, ''))
     data = response.json()
@@ -136,6 +156,7 @@ def call_using_add(c_add):
         answer = generate_text(data)
         return answer
     
+    # Extracting useful information from API response
     i = 0
     for item in data['items']:
         if item['kind'] == 'searchresults#company':
